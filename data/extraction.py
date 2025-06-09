@@ -2,7 +2,7 @@ import requests
 import tweepy
 import pandas as pd
 from datetime import datetime, timezone
-from google.cloud import storage # Diperlukan untuk akses bucket di Cloud Composer Task
+from google.cloud import storage
 import io
 
 from data.config import GOOGLE_API_KEY, TWITTER_BEARER_TOKEN, \
@@ -18,12 +18,20 @@ def get_places(query: str) -> list:
     response.raise_for_status()
     return response.json().get("results", [])
 
+from datetime import datetime, timezone
+import requests
+
+import hashlib
+from datetime import datetime, timezone
+import requests
+
 def get_place_details_and_reviews(place_id: str) -> tuple[dict, list]:
     """
     Mengambil detail lengkap tempat termasuk nama, ulasan, nomor telepon, dan jam operasional
-    menggunakan Place Details API.
+    menggunakan Place Details API, tanpa author_name, language, address_detail, dan relative_time_description.
+    ID review dibuat dari gabungan place_id, author_url, dan waktu ulasan yang di-hash.
     """
-    fields = "name,reviews,formatted_phone_number,opening_hours,place_id,types,geometry,formatted_address"
+    fields = "name,reviews,formatted_phone_number,opening_hours,place_id,types,geometry"
     url = f"https://maps.googleapis.com/maps/api/place/details/json?place_id={place_id}&fields={fields}&key={GOOGLE_API_KEY}&language=id"
     response = requests.get(url)
     response.raise_for_status()
@@ -31,21 +39,19 @@ def get_place_details_and_reviews(place_id: str) -> tuple[dict, list]:
 
     reviews_data = result.get("reviews", [])
     formatted_reviews = []
-    for r_idx, r in enumerate(reviews_data):
-        if r.get('time'):
-            author_id_part = r.get('author_name', str(r_idx)).replace(" ", "_")
-            review_id = f"{place_id}_{author_id_part}_{r.get('time')}"
-
+    for r in reviews_data:
+        if r.get('time') and r.get('author_url'):
+            timestamp = r.get('time')
+            author_url = r.get('author_url')
+            review_id = f"{place_id}_{author_url}_{timestamp}"
+            
             formatted_reviews.append({
                 "id_review": review_id,
-                "timestamp_review": datetime.fromtimestamp(r["time"], timezone.utc).isoformat(),
+                "timestamp_review": datetime.fromtimestamp(timestamp, timezone.utc).isoformat(),
                 "place_id": place_id,
-                "author_name": r.get("author_name"),
-                "author_url": r.get("author_url"),
+                "author_url": author_url,
                 "review_text": r.get("text"),
                 "rating": r.get("rating"),
-                "language": r.get("language"),
-                "relative_time_description": r.get("relative_time_description")
             })
 
     opening_hours_text = None
@@ -58,21 +64,21 @@ def get_place_details_and_reviews(place_id: str) -> tuple[dict, list]:
         "phone_number": result.get("formatted_phone_number"),
         "opening_hours_text": opening_hours_text,
         "types_detail": ", ".join(result.get("types", [])),
-        "address_detail": result.get("formatted_address"),
         "lat_detail": result.get("geometry", {}).get("location", {}).get("lat"),
         "lng_detail": result.get("geometry", {}).get("location", {}).get("lng"),
     }
+
     return place_data_from_details, formatted_reviews
 
 def search_tweets(keyword: str, place_id: str, max_results: int = 10) -> list:
-    """Mencari tweet berdasarkan kata kunci dan menyertakan place_id."""
+    """Mencari tweet berdasarkan kata kunci dan menyertakan place_id dengan field terbatas."""
     client = tweepy.Client(bearer_token=TWITTER_BEARER_TOKEN)
     try:
         res = client.search_recent_tweets(
             query=f'"{keyword}" lang:id -is:retweet',
             max_results=max_results,
-            tweet_fields=["created_at", "text", "author_id", "lang", "public_metrics", "geo"],
-            user_fields=["username", "name", "location", "verified"],
+            tweet_fields=["created_at", "text", "author_id", "geo"],
+            user_fields=["location"],
             expansions=["author_id", "geo.place_id"]
         )
     except tweepy.TweepyException as e:
@@ -89,22 +95,13 @@ def search_tweets(keyword: str, place_id: str, max_results: int = 10) -> list:
         user_info = users_dict.get(t.author_id)
         tweets_output.append({
             "id_tweet": str(t.id),
-            "place_id_source": place_id,
+            "place_id_source": place_id, # Tempat yang dibahas (kueri)
             "keyword_search": keyword,
-            "created_at_tweet": t.created_at.isoformat(),
+            "created_at_tweet": t.created_at.isoformat() if t.created_at else None,
             "text_tweet": t.text,
-            "lang_tweet": t.lang,
-            "retweet_count": t.public_metrics.get("retweet_count", 0) if t.public_metrics else 0,
-            "reply_count": t.public_metrics.get("reply_count", 0) if t.public_metrics else 0,
-            "like_count": t.public_metrics.get("like_count", 0) if t.public_metrics else 0,
-            "quote_count": t.public_metrics.get("quote_count", 0) if t.public_metrics else 0,
-            "impression_count": t.public_metrics.get("impression_count", 0) if t.public_metrics else 0,
             "id_author_twitter": str(t.author_id),
-            "author_username": user_info.username if user_info else None,
-            "author_name": user_info.name if user_info else None,
             "author_location": user_info.location if user_info and user_info.location else None,
-            "author_verified": user_info.verified if user_info else None,
-            "tweet_geo_place_id": t.geo.get("place_id") if t.geo else None
+            "tweet_geo_place_id": t.geo.get("place_id") if t.geo else None # Tempat asal user yang memposting tweet
         })
     return tweets_output
 
@@ -142,15 +139,12 @@ def extract_api_data_to_gcs(query_lokasi_wisata: str = "wisata di Malang"):
             merged_place_record = {
                 "place_id": place_id,
                 "name": place_details_data.get("name_detail") or nama_tempat_search,
-                "phone_number": place_details_data.get("formatted_phone_number"),
+                "phone_number": place_details_data.get("phone_number"),
                 "opening_hours_text": place_details_data.get("opening_hours_text"),
                 "types": place_details_data.get("types_detail") or ", ".join(p_basic_search.get("types", [])),
-                "address": place_details_data.get("formatted_address") or p_basic_search.get("formatted_address"),
                 "lat": place_details_data.get("lat_detail") or p_basic_search.get("geometry", {}).get("location", {}).get("lat"),
                 "lng": place_details_data.get("lng_detail") or p_basic_search.get("geometry", {}).get("location", {}).get("lng"),
-                "rating_search": p_basic_search.get("rating"),
-                "user_ratings_total_search": p_basic_search.get("user_ratings_total"),
-                "data_source": "merged_api_data"
+                "rating_search": p_basic_search.get("rating")
             }
             all_places_records.append(merged_place_record)
 
