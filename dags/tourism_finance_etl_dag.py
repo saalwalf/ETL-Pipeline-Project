@@ -4,14 +4,14 @@ from datetime import datetime, timedelta
 
 # Import fungsi-fungsi ETL dari modul yang terpisah
 # Pastikan folder 'data' di-upload bersama DAG ke Composer
-from data.extraction import extract_api_data_to_gcs, placeholder_for_manual_data_upload_to_gcs
+from data.extraction import extract_api_data_to_gcs
 from data.transformation_db import create_operational_db_schema, transform_and_load_to_operational_db
 from data.transformation_dw import create_bigquery_tables_for_data_mart, transform_and_load_to_bigquery_data_mart
 
 
 with DAG(
     dag_id='tourism_finance_etl_daily',
-    start_date=datetime(2023, 1, 1), # Tanggal mulai DAG, bisa disesuaikan
+    start_date=datetime(2025, 1, 1), # Tanggal mulai DAG, bisa disesuaikan
     schedule_interval=timedelta(days=1), # Jalankan setiap hari
     catchup=False, # Penting: Jangan jalankan untuk tanggal-tanggal yang terlewat
     tags=['etl', 'tourism', 'finance', 'daily'],
@@ -22,7 +22,7 @@ with DAG(
         'email_on_retry': False,
         'retries': 1,
         'retry_delay': timedelta(minutes=5),
-        'start_date': datetime(2023, 1, 1) # Juga definisikan di default_args
+        'start_date': datetime(2025, 1, 1) # Juga definisikan di default_args
     },
 ) as dag:
     # --- Task Ekstraksi Data API ke GCS Staging Area ---
@@ -32,16 +32,9 @@ with DAG(
         op_kwargs={'query_lokasi_wisata': 'objek wisata populer di Malang'}
     )
 
-    # --- Catatan: Data manual (keuangan) diharapkan sudah diunggah ke GCS oleh proses terpisah.
-    # Task ini hanya sebagai placeholder untuk menegaskan harapan tersebut.
-    # Jika Anda memiliki script terpisah untuk mengunggah manual,
-    # itu akan menjadi task di luar DAG ini atau DAG terpisah yang berjalan sebelumnya.
-    notify_manual_upload_expectation = PythonOperator(
-        task_id='notify_manual_data_expectation',
-        python_callable=placeholder_for_manual_data_upload_to_gcs,
-    )
+    # --- Catatan: Data manual (keuangan) sudah diunggah ke GCS oleh proses terpisah (dengan skrip manual_finance_uploader pada folder manual_tools).
 
-    # --- Task Pembentukan Skema Database Operasional (Idempotent) ---
+    # --- Task Pembentukan Skema Database Operasional ---
     create_operational_db_schema_task = PythonOperator(
         task_id='create_operational_db_schema',
         python_callable=create_operational_db_schema,
@@ -55,7 +48,7 @@ with DAG(
         python_callable=transform_and_load_to_operational_db,
     )
 
-    # --- Task Pembentukan Tabel BigQuery Data Mart (Idempotent) ---
+    # --- Task Pembentukan Tabel BigQuery Data Mart ---
     create_bigquery_tables = PythonOperator(
         task_id='create_bigquery_tables_data_mart',
         python_callable=create_bigquery_tables_for_data_mart,
