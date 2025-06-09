@@ -4,386 +4,331 @@ from sqlalchemy import create_engine
 from data.config import BIGQUERY_PROJECT_ID, BIGQUERY_DATASET_ID, SQL_ALCHEMY_DATABASE_URL
 
 def create_bigquery_tables_for_data_mart():
-    """Membuat tabel dimensi dan fakta di BigQuery sesuai skema data mart."""
-    print("\n--- Membuat Tabel BigQuery untuk Data Mart ---")
+    """Membuat tabel data mart sesuai desain fisik pada BigQuery."""
     bigquery_client = bigquery.Client(project=BIGQUERY_PROJECT_ID)
-
     tables = {
-        # Dimensi Waktu
-        "dim_waktu": """
-            CREATE TABLE IF NOT EXISTS `{project_id}.{dataset_id}.dim_waktu` (
+        # Dimensi
+        "dim_waktu": f"""
+            CREATE TABLE IF NOT EXISTS `{BIGQUERY_PROJECT_ID}.{BIGQUERY_DATASET_ID}.dim_waktu` (
                 timestamp_datetime TIMESTAMP NOT NULL,
-                jam TIME,
-                hari STRING,
-                tanggal DATE,
-                bulan STRING,
-                tahun INTEGER
+                jam TIME NOT NULL,
+                hari STRING NOT NULL,
+                tanggal DATE NOT NULL,
+                bulan STRING NOT NULL,
+                tahun INT64 NOT NULL
             );
         """,
-        # Dimensi Tempat
-        "dim_place": """
-            CREATE TABLE IF NOT EXISTS `{project_id}.{dataset_id}.dim_place` (
+        "dim_place": f"""
+            CREATE TABLE IF NOT EXISTS `{BIGQUERY_PROJECT_ID}.{BIGQUERY_DATASET_ID}.dim_place` (
                 place_id STRING NOT NULL,
-                nama_tempat STRING,
-                latitude FLOAT64,
-                longitude FLOAT64,
-                tipe_tempat STRING,
+                nama_tempat STRING NOT NULL,
+                latitude FLOAT64 NOT NULL,
+                longitude FLOAT64 NOT NULL,
+                tipe_tempat STRING NOT NULL,
                 kontak STRING,
-                jam_operasional STRING
+                jam_operasional STRING,
+                PRIMARY KEY(place_id)
             );
         """,
-        # Dimensi Vendor
-        "dim_vendor": """
-            CREATE TABLE IF NOT EXISTS `{project_id}.{dataset_id}.dim_vendor` (
-                id_vendor STRING NOT NULL,
-                nama_vendor STRING
-            );
-        """,
-        # Dimensi Departemen
-        "dim_departemen": """
-            CREATE TABLE IF NOT EXISTS `{project_id}.{dataset_id}.dim_departemen` (
-                id_departemen STRING NOT NULL,
-                nama_departemen STRING
-            );
-        """,
-        # Dimensi Penyumbang
-        "dim_penyumbang": """
-            CREATE TABLE IF NOT EXISTS `{project_id}.{dataset_id}.dim_penyumbang` (
-                id_penyumbang STRING NOT NULL,
-                nama_penyumbang STRING,
-                jenis_penyumbang STRING
-            );
-        """,
-        # Dimensi Proyek
-        "dim_proyek": """
-            CREATE TABLE IF NOT EXISTS `{project_id}.{dataset_id}.dim_proyek` (
-                id_proyek STRING NOT NULL,
-                nama_proyek STRING,
-                sektor_pariwisata STRING
-            );
-        """,
-        # Dimensi User (untuk Twitter)
-        "dim_user": """
-            CREATE TABLE IF NOT EXISTS `{project_id}.{dataset_id}.dim_user` (
+        "dim_user": f"""
+            CREATE TABLE IF NOT EXISTS `{BIGQUERY_PROJECT_ID}.{BIGQUERY_DATASET_ID}.dim_user` (
                 id_user STRING NOT NULL,
-                lokasi_user STRING
+                lokasi_user STRING,
+                PRIMARY KEY(id_user)
             );
         """,
-        # Fakta Ulasan (fact_maps)
-        "fact_maps": """
-            CREATE TABLE IF NOT EXISTS `{project_id}.{dataset_id}.fact_maps` (
+        "dim_vendor": f"""
+            CREATE TABLE IF NOT EXISTS `{BIGQUERY_PROJECT_ID}.{BIGQUERY_DATASET_ID}.dim_vendor` (
+                id_vendor STRING NOT NULL,
+                nama_vendor STRING NOT NULL,
+                PRIMARY KEY(id_vendor)
+            );
+        """,
+        "dim_departemen": f"""
+            CREATE TABLE IF NOT EXISTS `{BIGQUERY_PROJECT_ID}.{BIGQUERY_DATASET_ID}.dim_departemen` (
+                id_departemen STRING NOT NULL,
+                nama_departemen STRING NOT NULL,
+                PRIMARY KEY(id_departemen)
+            );
+        """,
+        "dim_proyek": f"""
+            CREATE TABLE IF NOT EXISTS `{BIGQUERY_PROJECT_ID}.{BIGQUERY_DATASET_ID}.dim_proyek` (
+                id_proyek STRING NOT NULL,
+                nama_proyek STRING NOT NULL,
+                sektor_pariwisata STRING NOT NULL,
+                PRIMARY KEY(id_proyek)
+            );
+        """,
+        "dim_penyumbang": f"""
+            CREATE TABLE IF NOT EXISTS `{BIGQUERY_PROJECT_ID}.{BIGQUERY_DATASET_ID}.dim_penyumbang` (
+                id_penyumbang STRING NOT NULL,
+                nama_penyumbang STRING NOT NULL,
+                jenis_penyumbang STRING NOT NULL,
+                PRIMARY KEY(id_penyumbang)
+            );
+        """,
+        # Fakta
+        "fact_maps": f"""
+            CREATE TABLE IF NOT EXISTS `{BIGQUERY_PROJECT_ID}.{BIGQUERY_DATASET_ID}.fact_maps` (
                 id_review STRING NOT NULL,
-                timestamp_datetime TIMESTAMP,
-                place_id STRING,
-                author_url STRING,
-                review_longtext STRING,
-                rating FLOAT64
+                timestamp_datetime TIMESTAMP NOT NULL,
+                place_id STRING NOT NULL,
+                author_url STRING NOT NULL,
+                review_longtext STRING NOT NULL,
+                rating FLOAT64 NOT NULL,
+                PRIMARY KEY(id_review)
             );
         """,
-        # Fakta Twitter (fact_twitter)
-        "fact_twitter": """
-            CREATE TABLE IF NOT EXISTS `{project_id}.{dataset_id}.fact_twitter` (
+        "fact_twitter": f"""
+            CREATE TABLE IF NOT EXISTS `{BIGQUERY_PROJECT_ID}.{BIGQUERY_DATASET_ID}.fact_twitter` (
                 id_tweet STRING NOT NULL,
-                created_at_datetime TIMESTAMP,
-                id_user STRING,
-                nama_lokasi STRING,
-                text_tweet STRING
+                created_at_datetime TIMESTAMP NOT NULL,
+                id_user STRING NOT NULL,
+                nama_lokasi STRING NOT NULL,
+                text_tweet STRING NOT NULL,
+                PRIMARY KEY(id_tweet)
             );
         """,
-        # Fakta Pengeluaran
-        "fact_pengeluaran": """
-            CREATE TABLE IF NOT EXISTS `{project_id}.{dataset_id}.fact_pengeluaran` (
+        "fact_pengeluaran": f"""
+            CREATE TABLE IF NOT EXISTS `{BIGQUERY_PROJECT_ID}.{BIGQUERY_DATASET_ID}.fact_pengeluaran` (
                 id_transaksi STRING NOT NULL,
-                timestamp_datetime TIMESTAMP,
-                jenis_kebutuhan STRING,
-                id_vendor STRING,
-                id_departemen STRING,
-                jumlah_pengeluaran BIGNUMERIC,
+                timestamp_datetime TIMESTAMP NOT NULL,
+                jenis_kebutuhan STRING NOT NULL,
+                id_vendor STRING NOT NULL,
+                id_departemen STRING NOT NULL,
+                jumlah_pengeluaran BIGNUMERIC NOT NULL,
                 bukti_pengeluaran STRING,
-                id_proyek STRING
+                id_proyek STRING NOT NULL,
+                PRIMARY KEY(id_transaksi)
             );
         """,
-        # Fakta Pemasukan
-        "fact_pemasukan": """
-            CREATE TABLE IF NOT EXISTS `{project_id}.{dataset_id}.fact_pemasukan` (
+        "fact_pemasukan": f"""
+            CREATE TABLE IF NOT EXISTS `{BIGQUERY_PROJECT_ID}.{BIGQUERY_DATASET_ID}.fact_pemasukan` (
                 id_transaksi_income STRING NOT NULL,
-                timestamp_datetime TIMESTAMP,
-                jenis_pemasukan STRING,
-                id_penyumbang STRING,
-                jumlah_pemasukan BIGNUMERIC,
+                timestamp_datetime TIMESTAMP NOT NULL,
+                jenis_pemasukan STRING NOT NULL,
+                id_penyumbang STRING NOT NULL,
+                jumlah_pemasukan BIGNUMERIC NOT NULL,
                 bukti_pemasukan STRING,
-                id_proyek STRING
+                id_proyek STRING NOT NULL,
+                PRIMARY KEY(id_transaksi_income)
             );
         """
     }
-
-    for table_name, schema_query in tables.items():
-        try:
-            query = schema_query.format(project_id=BIGQUERY_PROJECT_ID, dataset_id=BIGQUERY_DATASET_ID)
-            bigquery_client.query(query).result()
-            print(f"Tabel {table_name} berhasil dibuat/diperbarui di BigQuery.")
-        except Exception as e:
-            print(f"Error membuat tabel {table_name} di BigQuery: {e}")
+    for name, sql in tables.items():
+        bigquery_client.query(sql).result()
+        print(f"Tabel {name} berhasil dicek/dibuat di BigQuery.")
 
 def transform_and_load_to_bigquery_data_mart():
-    """
-    Mengambil data dari database operasional, melakukan transformasi kedua (denormalisasi/agregasi),
-    dan memuatnya ke Google BigQuery sesuai skema data mart.
-    """
-    print("\n--- Memulai Transformasi dan Loading ke BigQuery Data Mart ---")
-    
+    print("--- Transformasi dan Load ke Data Mart BigQuery ---")
     engine = create_engine(SQL_ALCHEMY_DATABASE_URL)
     bigquery_client = bigquery.Client(project=BIGQUERY_PROJECT_ID)
 
-    # --- 1. Muat Dimensi ---
-    print("Memuat Dimensi...")
+    # --------- DIMENSI ---------
+    # Dimensi Waktu (gabung semua timestamp dari tabel operasional)
+    print("Memuat dim_waktu ...")
+    df_reviews_op = pd.read_sql_table('reviews', engine)
+    df_tweets_op = pd.read_sql_table('tweets', engine)
+    df_pemasukan_op = pd.read_sql_table('pemasukan', engine)
+    df_pengeluaran_op = pd.read_sql_table('pengeluaran', engine)
 
-    # Dimensi Waktu
-    try:
-        df_reviews_op = pd.read_sql_table('reviews', engine)
-        df_tweets_op = pd.read_sql_table('tweets', engine)
-        df_pemasukan_op = pd.read_sql_table('pemasukan', engine)
-        df_pengeluaran_op = pd.read_sql_table('pengeluaran', engine)
-
-        all_timestamps = pd.Series(dtype='datetime64[ns]')
-        if not df_reviews_op.empty:
-            all_timestamps = pd.concat([all_timestamps, pd.to_datetime(df_reviews_op['timestamp_review'])])
-        if not df_tweets_op.empty:
-            all_timestamps = pd.concat([all_timestamps, pd.to_datetime(df_tweets_op['created_at_tweet'])])
-        if not df_pemasukan_op.empty:
-            all_timestamps = pd.concat([all_timestamps, pd.to_datetime(df_pemasukan_op['timestamp'])])
-        if not df_pengeluaran_op.empty:
-            all_timestamps = pd.concat([all_timestamps, pd.to_datetime(df_pengeluaran_op['timestamp'])])
-        
-        if not all_timestamps.empty:
-            df_dim_waktu = pd.DataFrame({'timestamp_datetime': all_timestamps.unique()})
-            df_dim_waktu['jam'] = df_dim_waktu['timestamp_datetime'].dt.time
-            df_dim_waktu['hari'] = df_dim_waktu['timestamp_datetime'].dt.day_name()
-            df_dim_waktu['tanggal'] = df_dim_waktu['timestamp_datetime'].dt.date
-            df_dim_waktu['bulan'] = df_dim_waktu['timestamp_datetime'].dt.strftime('%Y-%m')
-            df_dim_waktu['tahun'] = df_dim_waktu['timestamp_datetime'].dt.year
-            
-            job_config = bigquery.LoadJobConfig(write_disposition="WRITE_TRUNCATE") # Timpa untuk memastikan unik
-            table_id = f"{BIGQUERY_PROJECT_ID}.{BIGQUERY_DATASET_ID}.dim_waktu"
-            job = bigquery_client.load_table_from_dataframe(df_dim_waktu, table_id, job_config=job_config)
-            job.result()
-            print(f"Berhasil memuat {len(df_dim_waktu)} record ke dim_waktu di BigQuery.")
-        else:
-            print("Tidak ada data timestamp untuk dimuat ke dim_waktu.")
-    except Exception as e:
-        print(f"Error memuat dim_waktu ke BigQuery: {e}")
+    all_timestamps = pd.Series(dtype='datetime64[ns]')
+    for df, col in [
+        (df_reviews_op, 'timestamp_review'),
+        (df_tweets_op, 'created_at_tweet'),
+        (df_pemasukan_op, 'timestamp'),
+        (df_pengeluaran_op, 'timestamp'),
+    ]:
+        if not df.empty:
+            all_timestamps = pd.concat([all_timestamps, pd.to_datetime(df[col])])
+    all_timestamps = all_timestamps.dropna().unique()
+    df_dim_waktu = pd.DataFrame({'timestamp_datetime': pd.to_datetime(all_timestamps)})
+    if not df_dim_waktu.empty:
+        df_dim_waktu['jam'] = df_dim_waktu['timestamp_datetime'].dt.time
+        df_dim_waktu['hari'] = df_dim_waktu['timestamp_datetime'].dt.day_name()
+        df_dim_waktu['tanggal'] = df_dim_waktu['timestamp_datetime'].dt.date
+        df_dim_waktu['bulan'] = df_dim_waktu['timestamp_datetime'].dt.strftime('%Y-%m')
+        df_dim_waktu['tahun'] = df_dim_waktu['timestamp_datetime'].dt.year
+        # Semua NOT NULL
+        df_dim_waktu = df_dim_waktu.dropna()
+        job_config = bigquery.LoadJobConfig(write_disposition="WRITE_TRUNCATE")
+        table_id = f"{BIGQUERY_PROJECT_ID}.{BIGQUERY_DATASET_ID}.dim_waktu"
+        bigquery_client.load_table_from_dataframe(df_dim_waktu, table_id, job_config=job_config).result()
+        print(f"Berhasil memuat {len(df_dim_waktu)} record ke dim_waktu.")
 
     # Dimensi Place
-    try:
-        df_places_op = pd.read_sql_table('places', engine)
-        if not df_places_op.empty:
-            df_dim_place = df_places_op[['place_id', 'name', 'lat', 'lng', 'types', 'phone_number', 'opening_hours_text']].copy()
-            df_dim_place = df_dim_place.rename(columns={
-                'name': 'nama_tempat',
-                'lat': 'latitude',
-                'lng': 'longitude',
-                'types': 'tipe_tempat',
-                'phone_number': 'kontak',
-                'opening_hours_text': 'jam_operasional'
-            })
-            df_dim_place = df_dim_place.drop_duplicates(subset=['place_id'])
-            job_config = bigquery.LoadJobConfig(write_disposition="WRITE_TRUNCATE")
-            table_id = f"{BIGQUERY_PROJECT_ID}.{BIGQUERY_DATASET_ID}.dim_place"
-            job = bigquery_client.load_table_from_dataframe(df_dim_place, table_id, job_config=job_config)
-            job.result()
-            print(f"Berhasil memuat {len(df_dim_place)} record ke dim_place di BigQuery.")
-        else:
-            print("Tidak ada data places untuk dimuat ke dim_place.")
-    except Exception as e:
-        print(f"Error memuat dim_place ke BigQuery: {e}")
+    print("Memuat dim_place ...")
+    df_places_op = pd.read_sql_table('places', engine)
+    if not df_places_op.empty:
+        df_dim_place = df_places_op[[
+            'place_id', 'name', 'lat', 'lng', 'types', 'phone_number', 'opening_hours_text'
+        ]].copy()
+        df_dim_place = df_dim_place.rename(columns={
+            'name': 'nama_tempat',
+            'lat': 'latitude',
+            'lng': 'longitude',
+            'types': 'tipe_tempat',
+            'phone_number': 'kontak',
+            'opening_hours_text': 'jam_operasional'
+        })
+        # Semua field NOT NULL kecuali kontak, jam_operasional
+        df_dim_place = df_dim_place.dropna(subset=[
+            'place_id', 'nama_tempat', 'latitude', 'longitude', 'tipe_tempat'
+        ])
+        df_dim_place = df_dim_place.drop_duplicates(subset=['place_id'])
+        job_config = bigquery.LoadJobConfig(write_disposition="WRITE_TRUNCATE")
+        table_id = f"{BIGQUERY_PROJECT_ID}.{BIGQUERY_DATASET_ID}.dim_place"
+        bigquery_client.load_table_from_dataframe(df_dim_place, table_id, job_config=job_config).result()
+        print(f"Berhasil memuat {len(df_dim_place)} record ke dim_place.")
+
+    # Dimensi User (Twitter)
+    print("Memuat dim_user ...")
+    if not df_tweets_op.empty:
+        df_dim_user = df_tweets_op[['id_author_twitter', 'author_location']].copy()
+        df_dim_user = df_dim_user.rename(columns={
+            'id_author_twitter': 'id_user',
+            'author_location': 'lokasi_user'
+        })
+        df_dim_user = df_dim_user.drop_duplicates(subset=['id_user'])
+        df_dim_user = df_dim_user.dropna(subset=['id_user'])
+        job_config = bigquery.LoadJobConfig(write_disposition="WRITE_TRUNCATE")
+        table_id = f"{BIGQUERY_PROJECT_ID}.{BIGQUERY_DATASET_ID}.dim_user"
+        bigquery_client.load_table_from_dataframe(df_dim_user, table_id, job_config=job_config).result()
+        print(f"Berhasil memuat {len(df_dim_user)} record ke dim_user.")
 
     # Dimensi Vendor
-    try:
-        df_pengeluaran_op = pd.read_sql_table('pengeluaran', engine)
-        if not df_pengeluaran_op.empty:
-            df_dim_vendor = df_pengeluaran_op[['id_vendor', 'nama_vendor']].copy()
-            df_dim_vendor = df_dim_vendor.drop_duplicates(subset=['id_vendor'])
-            job_config = bigquery.LoadJobConfig(write_disposition="WRITE_TRUNCATE")
-            table_id = f"{BIGQUERY_PROJECT_ID}.{BIGQUERY_DATASET_ID}.dim_vendor"
-            job = bigquery_client.load_table_from_dataframe(df_dim_vendor, table_id, job_config=job_config)
-            job.result()
-            print(f"Berhasil memuat {len(df_dim_vendor)} record ke dim_vendor di BigQuery.")
-        else:
-            print("Tidak ada data vendor untuk dimuat ke dim_vendor.")
-    except Exception as e:
-        print(f"Error memuat dim_vendor ke BigQuery: {e}")
+    print("Memuat dim_vendor ...")
+    if not df_pengeluaran_op.empty:
+        df_dim_vendor = df_pengeluaran_op[['id_vendor', 'nama_vendor']].copy()
+        df_dim_vendor = df_dim_vendor.drop_duplicates(subset=['id_vendor'])
+        df_dim_vendor = df_dim_vendor.dropna(subset=['id_vendor', 'nama_vendor'])
+        job_config = bigquery.LoadJobConfig(write_disposition="WRITE_TRUNCATE")
+        table_id = f"{BIGQUERY_PROJECT_ID}.{BIGQUERY_DATASET_ID}.dim_vendor"
+        bigquery_client.load_table_from_dataframe(df_dim_vendor, table_id, job_config=job_config).result()
+        print(f"Berhasil memuat {len(df_dim_vendor)} record ke dim_vendor.")
 
     # Dimensi Departemen
-    try:
-        df_pengeluaran_op = pd.read_sql_table('pengeluaran', engine)
-        if not df_pengeluaran_op.empty:
-            df_dim_departemen = df_pengeluaran_op[['id_departemen', 'nama_departemen']].copy()
-            df_dim_departemen = df_dim_departemen.drop_duplicates(subset=['id_departemen'])
-            job_config = bigquery.LoadJobConfig(write_disposition="WRITE_TRUNCATE")
-            table_id = f"{BIGQUERY_PROJECT_ID}.{BIGQUERY_DATASET_ID}.dim_departemen"
-            job = bigquery_client.load_table_from_dataframe(df_dim_departemen, table_id, job_config=job_config)
-            job.result()
-            print(f"Berhasil memuat {len(df_dim_departemen)} record ke dim_departemen di BigQuery.")
-        else:
-            print("Tidak ada data departemen untuk dimuat ke dim_departemen.")
-    except Exception as e:
-        print(f"Error memuat dim_departemen ke BigQuery: {e}")
-
-    # Dimensi Penyumbang
-    try:
-        df_pemasukan_op = pd.read_sql_table('pemasukan', engine)
-        if not df_pemasukan_op.empty:
-            df_dim_penyumbang = df_pemasukan_op[['id_penyumbang', 'nama_penyumbang', 'jenis_penyumbang']].copy()
-            df_dim_penyumbang = df_dim_penyumbang.drop_duplicates(subset=['id_penyumbang'])
-            job_config = bigquery.LoadJobConfig(write_disposition="WRITE_TRUNCATE")
-            table_id = f"{BIGQUERY_PROJECT_ID}.{BIGQUERY_DATASET_ID}.dim_penyumbang"
-            job = bigquery_client.load_table_from_dataframe(df_dim_penyumbang, table_id, job_config=job_config)
-            job.result()
-            print(f"Berhasil memuat {len(df_dim_penyumbang)} record ke dim_penyumbang di BigQuery.")
-        else:
-            print("Tidak ada data penyumbang untuk dimuat ke dim_penyumbang.")
-    except Exception as e:
-        print(f"Error memuat dim_penyumbang ke BigQuery: {e}")
+    print("Memuat dim_departemen ...")
+    if not df_pengeluaran_op.empty:
+        df_dim_departemen = df_pengeluaran_op[['id_departemen', 'nama_departemen']].copy()
+        df_dim_departemen = df_dim_departemen.drop_duplicates(subset=['id_departemen'])
+        df_dim_departemen = df_dim_departemen.dropna(subset=['id_departemen', 'nama_departemen'])
+        job_config = bigquery.LoadJobConfig(write_disposition="WRITE_TRUNCATE")
+        table_id = f"{BIGQUERY_PROJECT_ID}.{BIGQUERY_DATASET_ID}.dim_departemen"
+        bigquery_client.load_table_from_dataframe(df_dim_departemen, table_id, job_config=job_config).result()
+        print(f"Berhasil memuat {len(df_dim_departemen)} record ke dim_departemen.")
 
     # Dimensi Proyek
-    try:
-        df_pemasukan_op = pd.read_sql_table('pemasukan', engine)
-        df_pengeluaran_op = pd.read_sql_table('pengeluaran', engine)
-        
-        df_proyek_pemasukan = df_pemasukan_op[['id_proyek', 'nama_proyek', 'sektor_pariwisata']].copy()
-        df_proyek_pengeluaran = df_pengeluaran_op[['id_proyek', 'nama_proyek', 'sektor_pariwisata']].copy()
-        
-        df_dim_proyek = pd.concat([df_proyek_pemasukan, df_proyek_pengeluaran]).drop_duplicates(subset=['id_proyek'])
-        
-        if not df_dim_proyek.empty:
-            job_config = bigquery.LoadJobConfig(write_disposition="WRITE_TRUNCATE")
-            table_id = f"{BIGQUERY_PROJECT_ID}.{BIGQUERY_DATASET_ID}.dim_proyek"
-            job = bigquery_client.load_table_from_dataframe(df_dim_proyek, table_id, job_config=job_config)
-            job.result()
-            print(f"Berhasil memuat {len(df_dim_proyek)} record ke dim_proyek di BigQuery.")
-        else:
-            print("Tidak ada data proyek untuk dimuat ke dim_proyek.")
-    except Exception as e:
-        print(f"Error memuat dim_proyek ke BigQuery: {e}")
+    print("Memuat dim_proyek ...")
+    df_dim_proyek = pd.concat([
+        df_pemasukan_op[['id_proyek', 'nama_proyek', 'sektor_pariwisata']],
+        df_pengeluaran_op[['id_proyek', 'nama_proyek', 'sektor_pariwisata']]
+    ]).drop_duplicates(subset=['id_proyek'])
+    df_dim_proyek = df_dim_proyek.dropna(subset=['id_proyek', 'nama_proyek', 'sektor_pariwisata'])
+    if not df_dim_proyek.empty:
+        job_config = bigquery.LoadJobConfig(write_disposition="WRITE_TRUNCATE")
+        table_id = f"{BIGQUERY_PROJECT_ID}.{BIGQUERY_DATASET_ID}.dim_proyek"
+        bigquery_client.load_table_from_dataframe(df_dim_proyek, table_id, job_config=job_config).result()
+        print(f"Berhasil memuat {len(df_dim_proyek)} record ke dim_proyek.")
 
-    # Dimensi User (untuk Twitter)
-    try:
-        df_tweets_op = pd.read_sql_table('tweets', engine)
-        if not df_tweets_op.empty:
-            df_dim_user = df_tweets_op[['id_author_twitter', 'author_location']].copy()
-            df_dim_user = df_dim_user.rename(columns={'id_author_twitter': 'id_user', 'author_location': 'lokasi_user'})
-            df_dim_user = df_dim_user.drop_duplicates(subset=['id_user'])
-            job_config = bigquery.LoadJobConfig(write_disposition="WRITE_TRUNCATE")
-            table_id = f"{BIGQUERY_PROJECT_ID}.{BIGQUERY_DATASET_ID}.dim_user"
-            job = bigquery_client.load_table_from_dataframe(df_dim_user, table_id, job_config=job_config)
-            job.result()
-            print(f"Berhasil memuat {len(df_dim_user)} record ke dim_user di BigQuery.")
-        else:
-            print("Tidak ada data user untuk dimuat ke dim_user.")
-    except Exception as e:
-        print(f"Error memuat dim_user ke BigQuery: {e}")
+    # Dimensi Penyumbang
+    print("Memuat dim_penyumbang ...")
+    if not df_pemasukan_op.empty:
+        df_dim_penyumbang = df_pemasukan_op[['id_penyumbang', 'nama_penyumbang', 'jenis_penyumbang']].copy()
+        df_dim_penyumbang = df_dim_penyumbang.drop_duplicates(subset=['id_penyumbang'])
+        df_dim_penyumbang = df_dim_penyumbang.dropna(subset=['id_penyumbang', 'nama_penyumbang', 'jenis_penyumbang'])
+        job_config = bigquery.LoadJobConfig(write_disposition="WRITE_TRUNCATE")
+        table_id = f"{BIGQUERY_PROJECT_ID}.{BIGQUERY_DATASET_ID}.dim_penyumbang"
+        bigquery_client.load_table_from_dataframe(df_dim_penyumbang, table_id, job_config=job_config).result()
+        print(f"Berhasil memuat {len(df_dim_penyumbang)} record ke dim_penyumbang.")
 
+    # --------- FAKTA ---------
+    # fact_maps
+    print("Memuat fact_maps ...")
+    if not df_reviews_op.empty:
+        df_fact_maps = df_reviews_op[['id_review', 'timestamp_review', 'place_id', 'author_url', 'review_text', 'rating']].copy()
+        df_fact_maps = df_fact_maps.rename(columns={
+            'timestamp_review': 'timestamp_datetime',
+            'review_text': 'review_longtext'
+        })
+        df_fact_maps = df_fact_maps.dropna(subset=[
+            'id_review', 'timestamp_datetime', 'place_id', 'author_url', 'review_longtext', 'rating'
+        ])
+        job_config = bigquery.LoadJobConfig(write_disposition="WRITE_TRUNCATE")
+        table_id = f"{BIGQUERY_PROJECT_ID}.{BIGQUERY_DATASET_ID}.fact_maps"
+        bigquery_client.load_table_from_dataframe(df_fact_maps, table_id, job_config=job_config).result()
+        print(f"Berhasil memuat {len(df_fact_maps)} record ke fact_maps.")
 
-    # --- 2. Muat Fakta ---
-    print("Memuat Fakta...")
+    # fact_twitter
+    print("Memuat fact_twitter ...")
+    if not df_tweets_op.empty:
+        df_places_op = pd.read_sql_table('places', engine)
+        df_fact_twitter = df_tweets_op.merge(
+            df_places_op[['place_id', 'name']],
+            left_on='place_id_source',
+            right_on='place_id',
+            how='left'
+        )
+        df_fact_twitter = df_fact_twitter.rename(columns={
+            'created_at_tweet': 'created_at_datetime',
+            'name': 'nama_lokasi'
+        })
+        df_fact_twitter_final = df_fact_twitter[[
+            'id_tweet', 'created_at_datetime', 'id_author_twitter', 'nama_lokasi', 'text_tweet'
+        ]].copy()
+        df_fact_twitter_final = df_fact_twitter_final.rename(columns={
+            'id_author_twitter': 'id_user'
+        })
+        df_fact_twitter_final = df_fact_twitter_final.dropna(subset=[
+            'id_tweet', 'created_at_datetime', 'id_user', 'nama_lokasi', 'text_tweet'
+        ])
+        job_config = bigquery.LoadJobConfig(write_disposition="WRITE_TRUNCATE")
+        table_id = f"{BIGQUERY_PROJECT_ID}.{BIGQUERY_DATASET_ID}.fact_twitter"
+        bigquery_client.load_table_from_dataframe(df_fact_twitter_final, table_id, job_config=job_config).result()
+        print(f"Berhasil memuat {len(df_fact_twitter_final)} record ke fact_twitter.")
 
-    # Fakta Ulasan (fact_maps)
-    try:
-        df_reviews_op = pd.read_sql_table('reviews', engine)
-        if not df_reviews_op.empty:
-            df_fact_maps = df_reviews_op[['id_review', 'timestamp_review', 'place_id', 'author_url', 'review_text', 'rating']].copy()
-            df_fact_maps = df_fact_maps.rename(columns={'review_text': 'review_longtext'})
-            df_fact_maps['timestamp_datetime'] = pd.to_datetime(df_fact_maps['timestamp_review'])
-            
-            job_config = bigquery.LoadJobConfig(write_disposition="WRITE_APPEND")
-            table_id = f"{BIGQUERY_PROJECT_ID}.{BIGQUERY_DATASET_ID}.fact_maps"
-            job = bigquery_client.load_table_from_dataframe(df_fact_maps, table_id, job_config=job_config)
-            job.result()
-            print(f"Berhasil memuat {len(df_fact_maps)} record ke fact_maps di BigQuery.")
-        else:
-            print("Tidak ada data reviews dari DB operasional untuk dimuat ke fact_maps.")
-    except Exception as e:
-        print(f"Error memuat fact_maps ke BigQuery: {e}")
+    # fact_pengeluaran
+    print("Memuat fact_pengeluaran ...")
+    if not df_pengeluaran_op.empty:
+        df_fact_pengeluaran = df_pengeluaran_op[[
+            'id_transaksi_original', 'timestamp', 'jenis_kebutuhan', 'id_vendor',
+            'id_departemen', 'jumlah', 'bukti', 'id_proyek'
+        ]].copy()
+        df_fact_pengeluaran = df_fact_pengeluaran.rename(columns={
+            'id_transaksi_original': 'id_transaksi',
+            'timestamp': 'timestamp_datetime',
+            'jumlah': 'jumlah_pengeluaran',
+            'bukti': 'bukti_pengeluaran'
+        })
+        df_fact_pengeluaran = df_fact_pengeluaran.dropna(subset=[
+            'id_transaksi', 'timestamp_datetime', 'jenis_kebutuhan',
+            'id_vendor', 'id_departemen', 'jumlah_pengeluaran', 'id_proyek'
+        ])
+        job_config = bigquery.LoadJobConfig(write_disposition="WRITE_TRUNCATE")
+        table_id = f"{BIGQUERY_PROJECT_ID}.{BIGQUERY_DATASET_ID}.fact_pengeluaran"
+        bigquery_client.load_table_from_dataframe(df_fact_pengeluaran, table_id, job_config=job_config).result()
+        print(f"Berhasil memuat {len(df_fact_pengeluaran)} record ke fact_pengeluaran.")
 
-    # Fakta Twitter (fact_twitter)
-    try:
-        df_tweets_op = pd.read_sql_table('tweets', engine)
-        df_places_op = pd.read_sql_table('places', engine) # Untuk mendapatkan nama tempat
-        if not df_tweets_op.empty:
-            df_fact_twitter = df_tweets_op.merge(
-                df_places_op[['place_id', 'name']],
-                left_on='place_id_source',
-                right_on='place_id',
-                how='left'
-            )
-            df_fact_twitter = df_fact_twitter.rename(columns={'name': 'nama_lokasi', 'created_at_tweet': 'created_at_datetime'})
-            df_fact_twitter['created_at_datetime'] = pd.to_datetime(df_fact_twitter['created_at_datetime'])
+    # fact_pemasukan
+    print("Memuat fact_pemasukan ...")
+    if not df_pemasukan_op.empty:
+        df_fact_pemasukan = df_pemasukan_op[[
+            'id_transaksi_original', 'timestamp', 'jenis_pemasukan', 'id_penyumbang',
+            'jumlah', 'bukti', 'id_proyek'
+        ]].copy()
+        df_fact_pemasukan = df_fact_pemasukan.rename(columns={
+            'id_transaksi_original': 'id_transaksi_income',
+            'timestamp': 'timestamp_datetime',
+            'jumlah': 'jumlah_pemasukan',
+            'bukti': 'bukti_pemasukan'
+        })
+        df_fact_pemasukan = df_fact_pemasukan.dropna(subset=[
+            'id_transaksi_income', 'timestamp_datetime', 'jenis_pemasukan',
+            'id_penyumbang', 'jumlah_pemasukan', 'id_proyek'
+        ])
+        job_config = bigquery.LoadJobConfig(write_disposition="WRITE_TRUNCATE")
+        table_id = f"{BIGQUERY_PROJECT_ID}.{BIGQUERY_DATASET_ID}.fact_pemasukan"
+        bigquery_client.load_table_from_dataframe(df_fact_pemasukan, table_id, job_config=job_config).result()
+        print(f"Berhasil memuat {len(df_fact_pemasukan)} record ke fact_pemasukan.")
 
-            df_fact_twitter_final = df_fact_twitter[[
-                'id_tweet', 'created_at_datetime', 'id_author_twitter', 'nama_lokasi', 'text_tweet'
-            ]].copy()
-            df_fact_twitter_final = df_fact_twitter_final.rename(columns={'id_author_twitter': 'id_user'})
-            
-            job_config = bigquery.LoadJobConfig(write_disposition="WRITE_APPEND")
-            table_id = f"{BIGQUERY_PROJECT_ID}.{BIGQUERY_DATASET_ID}.fact_twitter"
-            job = bigquery_client.load_table_from_dataframe(df_fact_twitter_final, table_id, job_config=job_config)
-            job.result()
-            print(f"Berhasil memuat {len(df_fact_twitter_final)} record ke fact_twitter di BigQuery.")
-        else:
-            print("Tidak ada data tweets dari DB operasional untuk dimuat ke fact_twitter.")
-    except Exception as e:
-        print(f"Error memuat fact_twitter ke BigQuery: {e}")
-
-    # Fakta Pengeluaran (fact_pengeluaran)
-    try:
-        df_pengeluaran_op = pd.read_sql_table('pengeluaran', engine)
-        if not df_pengeluaran_op.empty:
-            df_fact_pengeluaran = df_pengeluaran_op[[
-                'id_transaksi_original', 'timestamp', 'jenis_kebutuhan', 'id_vendor',
-                'id_departemen', 'jumlah', 'bukti', 'id_proyek'
-            ]].copy()
-            df_fact_pengeluaran = df_fact_pengeluaran.rename(columns={
-                'id_transaksi_original': 'id_transaksi',
-                'timestamp': 'timestamp_datetime',
-                'jumlah': 'jumlah_pengeluaran',
-                'bukti': 'bukti_pengeluaran'
-            })
-            df_fact_pengeluaran['timestamp_datetime'] = pd.to_datetime(df_fact_pengeluaran['timestamp_datetime'])
-            
-            job_config = bigquery.LoadJobConfig(write_disposition="WRITE_APPEND")
-            table_id = f"{BIGQUERY_PROJECT_ID}.{BIGQUERY_DATASET_ID}.fact_pengeluaran"
-            job = bigquery_client.load_table_from_dataframe(df_fact_pengeluaran, table_id, job_config=job_config)
-            job.result()
-            print(f"Berhasil memuat {len(df_fact_pengeluaran)} record ke fact_pengeluaran di BigQuery.")
-        else:
-            print("Tidak ada data pengeluaran dari DB operasional untuk dimuat ke fact_pengeluaran.")
-    except Exception as e:
-        print(f"Error memuat fact_pengeluaran ke BigQuery: {e}")
-
-    # Fakta Pemasukan (fact_pemasukan)
-    try:
-        df_pemasukan_op = pd.read_sql_table('pemasukan', engine)
-        if not df_pemasukan_op.empty:
-            df_fact_pemasukan = df_pemasukan_op[[
-                'id_transaksi_original', 'timestamp', 'jenis_pemasukan', 'id_penyumbang',
-                'jumlah', 'bukti', 'id_proyek'
-            ]].copy()
-            df_fact_pemasukan = df_fact_pemasukan.rename(columns={
-                'id_transaksi_original': 'id_transaksi_income',
-                'timestamp': 'timestamp_datetime',
-                'jumlah': 'jumlah_pemasukan',
-                'bukti': 'bukti_pemasukan'
-            })
-            df_fact_pemasukan['timestamp_datetime'] = pd.to_datetime(df_fact_pemasukan['timestamp_datetime'])
-            
-            job_config = bigquery.LoadJobConfig(write_disposition="WRITE_APPEND")
-            table_id = f"{BIGQUERY_PROJECT_ID}.{BIGQUERY_DATASET_ID}.fact_pemasukan"
-            job = bigquery_client.load_table_from_dataframe(df_fact_pemasukan, table_id, job_config=job_config)
-            job.result()
-            print(f"Berhasil memuat {len(df_fact_pemasukan)} record ke fact_pemasukan di BigQuery.")
-        else:
-            print("Tidak ada data pemasukan dari DB operasional untuk dimuat ke fact_pemasukan.")
-    except Exception as e:
-        print(f"Error memuat fact_pemasukan ke BigQuery: {e}")
-
-    print("Transformasi dan loading ke BigQuery Data Mart selesai.")
+    print("--- Selesai ---")
